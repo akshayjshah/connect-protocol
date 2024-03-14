@@ -28,9 +28,13 @@ func (p *pinger) Ping(
 		}
 		return nil, err
 	}
-	return connect.NewResponse(&pingv1.PingResponse{
+	res := connect.NewResponse(&pingv1.PingResponse{
 		Text: req.Msg.Text,
-	}), nil
+	})
+	if req.HTTPMethod() == http.MethodGet {
+		res.Header().Set("Cache-Control", "public, max-age=604800")
+	}
+	return res, nil
 }
 
 func (p *pinger) Pings(
