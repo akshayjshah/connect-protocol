@@ -4,7 +4,6 @@ set -euo pipefail
 curl -s -v \
   -X 'POST' \
   -H "Content-Type: application/json" \
-  -H "Connect-Timeout-Ms: 1000" \
   -H "Content-Encoding: identity" \
   -H "Accept-Encoding: identity" \
   --data '{"text": "hello"}' \
