@@ -10,8 +10,17 @@ message PingResponse {
   string text = 1;
 }
 
+message PingsRequest {
+  string text = 1;
+}
+
+message PingsResponse {
+  string text = 1;
+}
+
 service PingService {
   rpc Ping(PingRequest) returns (PingResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
+  rpc Pings(PingsRequest) returns (stream PingsResponse) {}
 }

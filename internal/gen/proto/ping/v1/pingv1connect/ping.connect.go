@@ -35,17 +35,21 @@ const (
 const (
 	// PingServicePingProcedure is the fully-qualified name of the PingService's Ping RPC.
 	PingServicePingProcedure = "/ping.v1.PingService/Ping"
+	// PingServicePingsProcedure is the fully-qualified name of the PingService's Pings RPC.
+	PingServicePingsProcedure = "/ping.v1.PingService/Pings"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
 var (
-	pingServiceServiceDescriptor    = v1.File_proto_ping_v1_ping_proto.Services().ByName("PingService")
-	pingServicePingMethodDescriptor = pingServiceServiceDescriptor.Methods().ByName("Ping")
+	pingServiceServiceDescriptor     = v1.File_proto_ping_v1_ping_proto.Services().ByName("PingService")
+	pingServicePingMethodDescriptor  = pingServiceServiceDescriptor.Methods().ByName("Ping")
+	pingServicePingsMethodDescriptor = pingServiceServiceDescriptor.Methods().ByName("Pings")
 )
 
 // PingServiceClient is a client for the ping.v1.PingService service.
 type PingServiceClient interface {
 	Ping(context.Context, *connect.Request[v1.PingRequest]) (*connect.Response[v1.PingResponse], error)
+	Pings(context.Context, *connect.Request[v1.PingsRequest]) (*connect.ServerStreamForClient[v1.PingsResponse], error)
 }
 
 // NewPingServiceClient constructs a client for the ping.v1.PingService service. By default, it uses
@@ -65,12 +69,19 @@ func NewPingServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		pings: connect.NewClient[v1.PingsRequest, v1.PingsResponse](
+			httpClient,
+			baseURL+PingServicePingsProcedure,
+			connect.WithSchema(pingServicePingsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // pingServiceClient implements PingServiceClient.
 type pingServiceClient struct {
-	ping *connect.Client[v1.PingRequest, v1.PingResponse]
+	ping  *connect.Client[v1.PingRequest, v1.PingResponse]
+	pings *connect.Client[v1.PingsRequest, v1.PingsResponse]
 }
 
 // Ping calls ping.v1.PingService.Ping.
@@ -78,9 +89,15 @@ func (c *pingServiceClient) Ping(ctx context.Context, req *connect.Request[v1.Pi
 	return c.ping.CallUnary(ctx, req)
 }
 
+// Pings calls ping.v1.PingService.Pings.
+func (c *pingServiceClient) Pings(ctx context.Context, req *connect.Request[v1.PingsRequest]) (*connect.ServerStreamForClient[v1.PingsResponse], error) {
+	return c.pings.CallServerStream(ctx, req)
+}
+
 // PingServiceHandler is an implementation of the ping.v1.PingService service.
 type PingServiceHandler interface {
 	Ping(context.Context, *connect.Request[v1.PingRequest]) (*connect.Response[v1.PingResponse], error)
+	Pings(context.Context, *connect.Request[v1.PingsRequest], *connect.ServerStream[v1.PingsResponse]) error
 }
 
 // NewPingServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -96,10 +113,18 @@ func NewPingServiceHandler(svc PingServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	pingServicePingsHandler := connect.NewServerStreamHandler(
+		PingServicePingsProcedure,
+		svc.Pings,
+		connect.WithSchema(pingServicePingsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/ping.v1.PingService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case PingServicePingProcedure:
 			pingServicePingHandler.ServeHTTP(w, r)
+		case PingServicePingsProcedure:
+			pingServicePingsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -111,4 +136,8 @@ type UnimplementedPingServiceHandler struct{}
 
 func (UnimplementedPingServiceHandler) Ping(context.Context, *connect.Request[v1.PingRequest]) (*connect.Response[v1.PingResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("ping.v1.PingService.Ping is not implemented"))
+}
+
+func (UnimplementedPingServiceHandler) Pings(context.Context, *connect.Request[v1.PingsRequest], *connect.ServerStream[v1.PingsResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("ping.v1.PingService.Pings is not implemented"))
 }

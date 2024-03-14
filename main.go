@@ -33,7 +33,20 @@ func (p *pinger) Ping(
 	}), nil
 }
 
-var _ pingv1connect.PingServiceHandler = (*pinger)(nil)
+func (p *pinger) Pings(
+	ctx context.Context,
+	req *connect.Request[pingv1.PingsRequest],
+	stream *connect.ServerStream[pingv1.PingsResponse],
+) error {
+	if err := stream.Send(&pingv1.PingsResponse{Text: req.Msg.Text}); err != nil {
+		return err
+	}
+	err := connect.NewError(connect.CodeInvalidArgument, errors.New("boom"))
+	if d, e := connect.NewErrorDetail(timestamppb.Now()); e == nil {
+		err.AddDetail(d)
+	}
+	return err
+}
 
 func main() {
 	reflector := grpcreflect.NewStaticReflector(
